@@ -1,0 +1,4 @@
+# ⚠️ 此文件已废弃。
+# 请使用项目根目录下的 docker-compose.yml（已更新环境变量支持）：
+#   cd ..
+#   docker compose up -d

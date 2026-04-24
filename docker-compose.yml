@@ -1,0 +1,178 @@
+# =============================================================================
+# AI 模拟面试系统 - 本地开发基础设施
+# =============================================================================
+# 快速启动：
+#   cp .env.example .env && 编辑 .env
+#   docker compose up -d
+#
+# 仅启 Phase 1 依赖（MySQL + Redis + MinIO）：
+#   docker compose up -d mysql redis minio
+#
+# Phase 3 向量存储（额外启动）：
+#   docker compose --profile vector up -d
+# =============================================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # MySQL 8  (Phase 1+)
+  # ──────────────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: interview-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-interview_db}
+      MYSQL_USER: ${DB_USER:-interview}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-interview_dev_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
+      # 强制 UTF-8mb4，与 Flyway schema 的 COLLATE 保持一致
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_0900_ai_ci
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - interview-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u${DB_USER:-interview}", "-p${DB_PASSWORD:-interview_dev_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Redis 7  (Phase 1+)
+  # ──────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: interview-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-}
+      --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - interview-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # MinIO  (Phase 1+)
+  # ──────────────────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: interview-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web Console (http://localhost:9001)
+    volumes:
+      - minio_data:/data
+    networks:
+      - interview-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # phpMyAdmin  (可选, 开发调试用)
+  # 访问 http://localhost:5050
+  # ──────────────────────────────────────────────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: interview-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: ${DB_USER:-interview}
+      PMA_PASSWORD: ${DB_PASSWORD:-interview_dev_password}
+    ports:
+      - "5050:80"
+    networks:
+      - interview-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    profiles:
+      - tools   # docker compose --profile tools up -d phpmyadmin
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Milvus (Phase 3+, 向量存储)
+  # 启动方式: docker compose --profile vector up -d
+  # ──────────────────────────────────────────────────────────────────────────
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.14
+    container_name: interview-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    command: >
+      etcd
+      --advertise-client-urls=http://etcd:2379
+      --listen-client-urls=http://0.0.0.0:2379
+      --data-dir /etcd
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - interview-net
+    profiles:
+      - vector
+
+  milvus:
+    image: milvusdb/milvus:v2.4.0
+    container_name: interview-milvus
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+    ports:
+      - "19530:19530"   # gRPC
+      - "9091:9091"     # HTTP metrics
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks:
+      - interview-net
+    depends_on:
+      - etcd
+      - minio
+    profiles:
+      - vector
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 持久化卷
+# ──────────────────────────────────────────────────────────────────────────────
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
+  etcd_data:
+  milvus_data:
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 网络
+# ──────────────────────────────────────────────────────────────────────────────
+networks:
+  interview-net:
+    driver: bridge
