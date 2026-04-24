@@ -5,25 +5,23 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    # 开发期可打开 SQL 日志, 生产关掉
     show-sql: false
     properties:
       hibernate:
         format_sql: true
 
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:interview_db}?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
-    username: ${DB_USER:interview}
-    password: ${DB_PASSWORD:interview}
+    url: jdbc:mysql://10.101.171.175:3306/interview_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: interview
+    password: interview_dev_password
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      database: ${REDIS_DB:0}
-      # 如果 Redis 有密码, 设置 REDIS_PASSWORD 环境变量
-      password: ${REDIS_PASSWORD:}
+      host: 10.101.171.175
+      port: 6379
+      database: 0
+      password: redis_dev_password
 
   jackson:
     default-property-inclusion: non_null
@@ -31,28 +29,19 @@ spring:
       write-dates-as-timestamps: false
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
   servlet:
     context-path: /api
 
-# ──────────────────────────────────────────────────────────────────────────────
-# JWT
-# ──────────────────────────────────────────────────────────────────────────────
-# JWT_SECRET 必须设置，且长度 >= 64 字节（HS512 要求）。
-# 开发环境可在 .env 文件中定义，或通过 IDE Run Configuration 注入。
-# 生产环境必须来自 secret 管理系统（如 Vault / 系统环境变量），禁止写死。
 jwt:
-  secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION_MS:86400000}          # 默认 24h
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:2592000000}  # 默认 30d
+  secret: 5860d1e74dda7f1ee106f0eb3338b2a4d64aa368c20b5ba7a7716749d64bbc77f24ba355eb466337ede425c9ac7ecfffd4eecd541993972ba5f5dacc9b01662b
+  expiration: 86400000
+  refresh-expiration: 2592000000
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Python Agent 服务
-# ──────────────────────────────────────────────────────────────────────────────
 agent:
   service:
-    url: ${AGENT_SERVICE_URL:http://localhost:8000}
-    timeout: ${AGENT_SERVICE_TIMEOUT_MS:30000}
+    url: http://localhost:8000
+    timeout: 30000
     planning:
       endpoint: /api/v1/planning
     interview:
@@ -64,16 +53,10 @@ agent:
     reflection:
       endpoint: /api/v1/reflection
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CORS（开发环境允许 Vite / CRA 默认端口，生产改为真实域名）
-# ──────────────────────────────────────────────────────────────────────────────
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  allowed-origins: http://localhost:5173,http://localhost:3000
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 日志
-# ──────────────────────────────────────────────────────────────────────────────
 logging:
   level:
     root: INFO
-    com.ai.interview: ${LOG_LEVEL_APP:DEBUG}
+    com.ai.interview: DEBUG
