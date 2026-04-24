@@ -21,7 +21,7 @@ services:
   # “Cannot downgrade from 80300 to 80046”。解决：① 保持 8.3+ 镜像；或 ② 删卷重来
   # （docker compose down -v，会清空数据库数据）。
   mysql:
-    image: mysql:8.4
+    image: mysql:8
     container_name: interview-mysql
     restart: unless-stopped
     environment:
