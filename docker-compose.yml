@@ -24,6 +24,14 @@ services:
     image: mysql:8
     container_name: interview-mysql
     restart: unless-stopped
+    # ① 新账号默认 caching_sha2（与 MySQL 8 推荐一致，Connector/J 8+ 可直接连）
+    # ② 抑制 MY-013360：mysql_native_password 插件弃用提示（否则每次连接/启动易刷屏）
+    #    根因修复：对仍用 mysql_native_password 的账号执行
+    #    ALTER USER 'user'@'%' IDENTIFIED WITH caching_sha2_password BY '同原密码';
+    command:
+      - mysqld
+      - --default-authentication-plugin=caching_sha2_password
+      - --log-error-suppression-list=MY-013360
     environment:
       MYSQL_DATABASE: ${DB_NAME:-interview_db}
       MYSQL_USER: ${DB_USER:-interview}
