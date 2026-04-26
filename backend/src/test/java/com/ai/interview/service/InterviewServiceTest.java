@@ -7,6 +7,7 @@ import com.ai.interview.entity.SessionStatus;
 import com.ai.interview.entity.embeddable.SessionConfig;
 import com.ai.interview.exception.ResourceNotFoundException;
 import com.ai.interview.repository.InterviewSessionRepository;
+import com.ai.interview.repository.InterviewTurnRepository;
 import com.ai.interview.security.LoginUserContextService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,8 @@ class InterviewServiceTest {
     @Mock
     private InterviewSessionRepository sessionRepository;
     @Mock
+    private InterviewTurnRepository turnRepository;
+    @Mock
     private AgentServiceClient agentServiceClient;
     @Mock
     private LoginUserContextService loginUserContextService;
@@ -41,7 +44,7 @@ class InterviewServiceTest {
 
     @BeforeEach
     void setUp() {
-        interviewService = new InterviewService(sessionRepository, agentServiceClient, loginUserContextService);
+        interviewService = new InterviewService(sessionRepository, turnRepository, agentServiceClient, loginUserContextService);
         when(loginUserContextService.requireUserId()).thenReturn(USER_ID);
     }
 

@@ -14,4 +14,6 @@ public interface AsyncJobRepository extends JpaRepository<AsyncJob, Long> {
     Optional<AsyncJob> findByIdAndUserId(Long id, Long userId);
 
     List<AsyncJob> findByUserIdAndJobTypeOrderByCreatedAtDesc(Long userId, JobType type);
+
+    List<AsyncJob> findByRelatedEntityTypeAndRelatedEntityId(String entityType, Long entityId);
 }

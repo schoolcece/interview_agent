@@ -11,14 +11,14 @@ spring:
         format_sql: true
 
   datasource:
-    url: jdbc:mysql://10.101.171.175:3306/interview_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://localhost:13306/interview_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: interview
     password: interview_dev_password
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
-      host: 10.101.171.175
+      host: localhost
       port: 6379
       database: 0
       password: redis_dev_password
@@ -37,6 +37,13 @@ jwt:
   secret: 5860d1e74dda7f1ee106f0eb3338b2a4d64aa368c20b5ba7a7716749d64bbc77f24ba355eb466337ede425c9ac7ecfffd4eecd541993972ba5f5dacc9b01662b
   expiration: 86400000
   refresh-expiration: 2592000000
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin_dev
+  bucket-resume: resumes
+  bucket-audio: audio
 
 agent:
   service:

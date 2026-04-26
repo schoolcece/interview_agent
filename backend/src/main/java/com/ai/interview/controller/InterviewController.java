@@ -2,10 +2,13 @@ package com.ai.interview.controller;
 
 import com.ai.interview.dto.CreateInterviewSessionRequest;
 import com.ai.interview.entity.InterviewSession;
+import com.ai.interview.entity.InterviewTurn;
 import com.ai.interview.service.InterviewService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,6 +19,13 @@ public class InterviewController {
 
     public InterviewController(InterviewService interviewService) {
         this.interviewService = interviewService;
+    }
+
+    @GetMapping("/sessions")
+    public ResponseEntity<Page<InterviewSession>> listSessions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(interviewService.listMySessions(page, size));
     }
 
     @PostMapping("/session/create")
@@ -40,6 +50,11 @@ public class InterviewController {
     @GetMapping("/{sessionId}")
     public ResponseEntity<InterviewSession> getSession(@PathVariable Long sessionId) {
         return ResponseEntity.ok(interviewService.getSession(sessionId));
+    }
+
+    @GetMapping("/{sessionId}/turns")
+    public ResponseEntity<List<InterviewTurn>> getSessionTurns(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(interviewService.getSessionTurns(sessionId));
     }
 
     @PostMapping("/{sessionId}/evaluate")

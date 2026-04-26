@@ -3,16 +3,21 @@ package com.ai.interview.service;
 import com.ai.interview.client.AgentServiceClient;
 import com.ai.interview.dto.CreateInterviewSessionRequest;
 import com.ai.interview.entity.InterviewSession;
+import com.ai.interview.entity.InterviewTurn;
 import com.ai.interview.entity.SessionStatus;
 import com.ai.interview.entity.embeddable.SessionConfig;
 import com.ai.interview.exception.ResourceNotFoundException;
 import com.ai.interview.repository.InterviewSessionRepository;
+import com.ai.interview.repository.InterviewTurnRepository;
 import com.ai.interview.security.LoginUserContextService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,13 +30,16 @@ import java.util.Map;
 public class InterviewService {
 
     private final InterviewSessionRepository sessionRepository;
+    private final InterviewTurnRepository turnRepository;
     private final AgentServiceClient agentServiceClient;
     private final LoginUserContextService loginUserContextService;
 
     public InterviewService(InterviewSessionRepository sessionRepository,
+                            InterviewTurnRepository turnRepository,
                             AgentServiceClient agentServiceClient,
                             LoginUserContextService loginUserContextService) {
         this.sessionRepository = sessionRepository;
+        this.turnRepository = turnRepository;
         this.agentServiceClient = agentServiceClient;
         this.loginUserContextService = loginUserContextService;
     }
@@ -137,6 +145,18 @@ public class InterviewService {
             log.error("Error calling evaluation service for session {}", sessionId, e);
             throw new RuntimeException("Failed to evaluate interview", e);
         }
+    }
+
+    public Page<InterviewSession> listMySessions(int page, int size) {
+        Long userId = loginUserContextService.requireUserId();
+        return sessionRepository.findByUserIdOrderByCreatedAtDesc(
+                userId, PageRequest.of(page, size));
+    }
+
+    public List<InterviewTurn> getSessionTurns(Long sessionId) {
+        Long userId = loginUserContextService.requireUserId();
+        requireOwnedSession(sessionId, userId);
+        return turnRepository.findBySessionIdOrderByTurnNoAsc(sessionId);
     }
 
     private InterviewSession requireOwnedSession(Long sessionId, Long userId) {
