@@ -96,11 +96,19 @@ public class ResumeService {
         return saved;
     }
 
+    /**
+     * 获取当前用户的所有简历列表（已排除软删除记录），按上传时间倒序。
+     */
     public List<Resume> listMyResumes() {
         Long userId = loginUserContextService.requireUserId();
         return resumeRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
     }
 
+    /**
+     * 获取当前用户的单条简历详情。
+     *
+     * @throws ResourceNotFoundException 简历不存在或不属于当前用户时抛出
+     */
     public Resume getMyResume(Long resumeId) {
         Long userId = loginUserContextService.requireUserId();
         return resumeRepository.findByIdAndUserIdAndDeletedAtIsNull(resumeId, userId)
@@ -131,6 +139,10 @@ public class ResumeService {
     // 私有工具
     // ──────────────────────────────────────────────────────────────────────────
 
+    /**
+     * 文件格式与大小校验：仅接受 ≤10MB 的 PDF，
+     * 且通过 PDFBox 解析文件头来防止伪造 Content-Type。
+     */
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File must not be empty");
@@ -156,6 +168,9 @@ public class ResumeService {
         }
     }
 
+    /**
+     * 计算文件内容的 SHA-256 哈希，用作 MinIO 对象名的一部分（去重 + 防冲突）。
+     */
     private String computeSha256(MultipartFile file) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

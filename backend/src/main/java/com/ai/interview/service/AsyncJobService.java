@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 异步任务管理服务。
+ * <p>异步任务（async_jobs 表）是 Java 和 Python 之间的协调机制：
+ * Java 创建任务记录，Python Worker 轮询该表并领取任务执行，执行结果再回写到 result / status 字段。
+ */
 @Service
 @Slf4j
 public class AsyncJobService {
@@ -51,10 +56,22 @@ public class AsyncJobService {
         return saved;
     }
 
+    /**
+     * 按任务 ID 查询任务详情（用于前端轮询任务进度）。
+     *
+     * @return 包含任务实体的 Optional；不做权限过滤，调用方自行判断归属
+     */
     public Optional<AsyncJob> getJobById(Long jobId) {
         return asyncJobRepository.findById(jobId);
     }
 
+    /**
+     * 查询与某个业务实体关联的所有任务（如某份简历的所有解析任务）。
+     *
+     * @param entityType 实体类型字符串，如 "resume"
+     * @param entityId   实体 ID
+     * @return 关联任务列表（无序）
+     */
     public List<AsyncJob> getJobsByEntityId(String entityType, Long entityId) {
         return asyncJobRepository.findByRelatedEntityTypeAndRelatedEntityId(entityType, entityId);
     }

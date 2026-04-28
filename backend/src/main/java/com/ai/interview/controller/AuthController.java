@@ -14,7 +14,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 注意：Controller 层不再包裹 try/catch。
+ * 认证相关接口：登录 / 注册 / 查看个人资料。
+ *
+ * <pre>
+ * POST /auth/login     登录，返回 JWT 令牌（无需认证）
+ * POST /auth/register  注册，成功后自动返回令牌（无需认证）
+ * GET  /auth/profile   查看当前登录用户的个人信息（需要 JWT）
+ * </pre>
+ *
+ * <p>注意：Controller 层不再包裹 try/catch。
  * 异常统一由 {@link com.ai.interview.exception.GlobalExceptionHandler} 处理，
  * 避免 500 错误被误吞为 400/401。
  */
@@ -31,16 +39,19 @@ public class AuthController {
         this.loginUserContextService = loginUserContextService;
     }
 
+    /** 用户名密码登录，返回 accessToken / refreshToken 等信息。 */
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody AuthRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    /** 新用户注册，注册成功后直接返回 Token（免二次登录）。 */
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
     }
 
+    /** 获取当前登录用户的基本资料（需在 Header 中携带 Bearer Token）。 */
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile() {
         Long userId = loginUserContextService.requireUserId();
@@ -49,6 +60,7 @@ public class AuthController {
         return ResponseEntity.ok(toProfileResponse(user));
     }
 
+    /** 将 User 实体转换为脱敏的 API 响应 Map（不暴露 passwordHash 等敏感字段）。 */
     private Map<String, Object> toProfileResponse(User user) {
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());

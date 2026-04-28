@@ -44,6 +44,13 @@ public class InterviewService {
         this.loginUserContextService = loginUserContextService;
     }
 
+    /**
+     * 创建面试会话，初始状态为 PLANNING（等待 AI 生成面试计划）。
+     *
+     * @param request 包含 config（领域/总轮次等）和可选的 resumeId
+     * @return 已持久化的 InterviewSession 实体
+     * @throws IllegalArgumentException config 或 config.domain 为空时抛出
+     */
     public InterviewSession createInterviewSession(CreateInterviewSessionRequest request) {
         Long userId = loginUserContextService.requireUserId();
         if (request == null || request.getConfig() == null) {
@@ -62,6 +69,13 @@ public class InterviewService {
         return saved;
     }
 
+    /**
+     * 启动面试：调用 Python Planning 服务生成面试计划，并将 session 状态切换为 IN_PROGRESS。
+     * <p>若 Python 服务调用失败，session 状态置为 FAILED 并抛出异常。
+     *
+     * @param sessionId 待启动的 session ID
+     * @return Python Planning 服务返回的计划内容 Map（含问题列表、知识点覆盖等）
+     */
     public Map<String, Object> startInterview(Long sessionId) {
         Long userId = loginUserContextService.requireUserId();
         InterviewSession session = requireOwnedSession(sessionId, userId);
@@ -88,6 +102,15 @@ public class InterviewService {
         }
     }
 
+    /**
+     * 提交用户的当前轮回答，转发给 Python Interview 服务进行评分并获取下一个问题。
+     * <p>若 Python 返回 {@code is_complete=true}，自动将 session 状态切换为 COMPLETED 并记录结束时间。
+     *
+     * @param sessionId    所属 session ID
+     * @param userResponse 用户的文字回答（语音场景由前端 ASR 转文字后传入）
+     * @param audioPath    用户音频文件在 MinIO 中的路径（纯文字场景可为 null）
+     * @return Python Interview 服务返回的 Map（含下一题、评分结果等）
+     */
     public Map<String, Object> submitTurn(Long sessionId, String userResponse, String audioPath) {
         Long userId = loginUserContextService.requireUserId();
         InterviewSession session = requireOwnedSession(sessionId, userId);
@@ -126,11 +149,23 @@ public class InterviewService {
         }
     }
 
+    /**
+     * 获取当前用户的指定 session（鉴权：只能查看自己的）。
+     *
+     * @throws ResourceNotFoundException session 不存在或不属于当前用户时抛出
+     */
     public InterviewSession getSession(Long sessionId) {
         Long userId = loginUserContextService.requireUserId();
         return requireOwnedSession(sessionId, userId);
     }
 
+    /**
+     * 触发面试整体评估：调用 Python Evaluation 服务生成综合评估报告。
+     * <p>通常在所有轮次完成后由前端主动调用，或在 submitTurn 检测到 is_complete 时自动触发。
+     *
+     * @param sessionId 待评估的 session ID
+     * @return Python 返回的评估报告 Map（含总分、薄弱知识点等）
+     */
     public Map<String, Object> triggerEvaluation(Long sessionId) {
         Long userId = loginUserContextService.requireUserId();
         requireOwnedSession(sessionId, userId);
@@ -147,18 +182,35 @@ public class InterviewService {
         }
     }
 
+    /**
+     * 分页查询当前用户的所有面试 session，按创建时间倒序排列。
+     *
+     * @param page 页码（从 0 开始）
+     * @param size 每页条数
+     * @return 分页结果（包含 content、totalElements 等 Page 元信息）
+     */
     public Page<InterviewSession> listMySessions(int page, int size) {
         Long userId = loginUserContextService.requireUserId();
         return sessionRepository.findByUserIdOrderByCreatedAtDesc(
                 userId, PageRequest.of(page, size));
     }
 
+    /**
+     * 获取指定 session 下所有问答轮次，按 turnNo 升序排列（第 1 轮在前）。
+     * <p>先校验 session 归属权，再查询 turns，防止越权访问。
+     */
     public List<InterviewTurn> getSessionTurns(Long sessionId) {
         Long userId = loginUserContextService.requireUserId();
         requireOwnedSession(sessionId, userId);
         return turnRepository.findBySessionIdOrderByTurnNoAsc(sessionId);
     }
 
+    /**
+     * 查询 session 并验证其归属权，任何 Service 方法操作 session 前必须调用此方法。
+     *
+     * @throws IllegalArgumentException  sessionId 为 null 时抛出
+     * @throws ResourceNotFoundException session 不存在或不属于 userId 时抛出（统一 404，不泄露资源存在性）
+     */
     private InterviewSession requireOwnedSession(Long sessionId, Long userId) {
         if (sessionId == null) {
             throw new IllegalArgumentException("sessionId is required");
