@@ -28,7 +28,8 @@ class Resume(Base):
     mentioned_kps = Column(JSON)
     embedding_ref = Column(String(128))
     analysis_status = Column(
-        Enum("PENDING", "PROCESSING", "PARSED", "FAILED", name="analysis_status_enum"),
+        # 枚举值必须与 Java AnalysisStatus 枚举及 Flyway 建表 SQL 完全一致
+        Enum("PENDING", "PARSING", "PARSED", "FAILED", name="analysis_status_enum"),
         nullable=False,
         default="PENDING",
     )
