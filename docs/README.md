@@ -2,6 +2,35 @@
 
 本目录是 AI 模拟面试 Agent 系统的文档中心。
 
+## 当前项目阶段
+
+### Phase 0
+
+**Phase 0 — 基础重构中**
+
+- [x] 推翻旧 Schema，落地 `V1__init_schema.sql` 新版
+- [x] 产出本架构文档与 Agent 设计文档
+- [ ] 清理旧代码：删除 `org_id`、重构现有 3 个 Entity 到新主键类型
+- [ ] 修复 WebSocket 鉴权
+- [ ] Python 项目骨架初始化
+
+进入 Phase 1（文本 MVP 闭环）前 Phase 0 全部完成。
+
+**Phase 0 已完成**
+
+### Phase 1
+
+Phase 1开发中
+
+## Recent Updates
+
+**2026-04-28**
+* backend接口功能与代码注释添加
+
+**2026-04-27**
+* Phase 1 demo开发待debug测试
+
+
 ## 当前有效文档（请以这些为准）
 
 | 文档 | 内容 | 何时读 |
@@ -36,14 +65,3 @@ v0 阶段遗留文档已统一归档到：
    - 同步更新 `ARCHITECTURE.md` §4 和 `AGENT_DESIGN.md` 中受影响段落
 4. 新增 Agent / 工作流：在 `AGENT_DESIGN.md` 对应章节补充，不要开新文档分散信息。
 
-## 当前项目阶段
-
-**Phase 0 — 基础重构中**
-
-- [x] 推翻旧 Schema，落地 `V1__init_schema.sql` 新版
-- [x] 产出本架构文档与 Agent 设计文档
-- [ ] 清理旧代码：删除 `org_id`、重构现有 3 个 Entity 到新主键类型
-- [ ] 修复 WebSocket 鉴权
-- [ ] Python 项目骨架初始化
-
-进入 Phase 1（文本 MVP 闭环）前 Phase 0 全部完成。
