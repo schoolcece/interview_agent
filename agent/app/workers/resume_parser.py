@@ -23,19 +23,36 @@ from app.db.models import AsyncJob, Resume
 logger = logging.getLogger(__name__)
 
 _PARSE_SYSTEM = """你是一位简历解析专家。
-请从以下简历文本中提取结构化信息，输出合法 JSON（不含任何 markdown 代码块）：
+请从以下简历文本中提取结构化信息，严格按照下面的 JSON schema 输出（不含任何 markdown 代码块、不含注释）：
 {
-  "name": "姓名",
-  "email": "邮箱",
-  "phone": "电话",
-  "education": [{"school": "...", "degree": "...", "major": "...", "year": "..."}],
-  "skills": ["技能1", "技能2"],
-  "work_experience": [{"company": "...", "title": "...", "duration": "...", "description": "..."}],
-  "projects": [{"name": "...", "tech_stack": ["..."], "description": "..."}],
-  "work_experience_summary": "一句话总结工作经历",
-  "projects_summary": "一句话总结项目经历"
+  "basics": {
+    "name": "姓名",
+    "email": "邮箱",
+    "phone": "电话",
+    "target": "求职意向/目标岗位，如不明确则留空字符串"
+  },
+  "education": [
+    {"school": "学校名称", "degree": "学历/专业", "period": "就读时间，如 2018-2022"}
+  ],
+  "experiences": [
+    {"company": "公司名称", "role": "岗位", "period": "在职时间", "summary": "工作职责与成果一句话总结"}
+  ],
+  "projects": [
+    {
+      "name": "项目名称",
+      "stack": ["技术1", "技术2"],
+      "role": "在项目中的角色",
+      "summary": "项目简介一句话",
+      "highlights": ["亮点1", "亮点2"]
+    }
+  ],
+  "skills": ["技能1", "技能2"]
 }
-只输出 JSON。"""
+字段说明：
+- basics.target：若简历未提及求职意向，填空字符串 ""
+- experiences[].summary：50 字以内的一句话总结
+- projects[].highlights：列举 1-3 条核心成就，无则留空数组 []
+只输出 JSON，不要输出任何其他内容。"""
 
 
 def run_once(db: Session) -> int:
@@ -71,7 +88,7 @@ def _process_job(job: AsyncJob, db: Session) -> None:
         return
 
     try:
-        resume.analysis_status = "PROCESSING"
+        resume.analysis_status = "PARSING"   # 对应 Java AnalysisStatus.PARSING
         db.commit()
 
         payload = job.payload or {}

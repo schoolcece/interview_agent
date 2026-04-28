@@ -1,5 +1,6 @@
 package com.ai.interview.entity.embeddable;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,12 +10,15 @@ import java.util.List;
 
 /**
  * 简历解析后的结构化 JSON，映射到 {@code resumes.parsed_content}。
- * <p>字段命名与 schema 注释中的推荐结构对齐。
+ * <p>字段命名与 Python Worker 的输出结构保持一致。
+ * <p>{@code @JsonIgnoreProperties(ignoreUnknown = true)} 确保 Python 输出额外字段时
+ * 不会导致 Hibernate 反序列化失败，起兜底防御作用。
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ParsedResume {
 
     private Basics basics;
@@ -27,6 +31,7 @@ public class ParsedResume {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Basics {
         private String name;
         private String email;
@@ -38,6 +43,7 @@ public class ParsedResume {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Education {
         private String school;
         private String degree;
@@ -48,6 +54,7 @@ public class ParsedResume {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Experience {
         private String company;
         private String role;
@@ -59,6 +66,7 @@ public class ParsedResume {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Project {
         private String name;
         private List<String> stack;
