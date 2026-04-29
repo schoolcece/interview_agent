@@ -4,6 +4,7 @@
 """
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -83,17 +84,27 @@ def run_planning(payload: dict[str, Any], db: Session) -> dict[str, Any]:
     resume_id = payload.get("resume_id")
     config = payload.get("config", {})
 
-    # 读取简历摘要（若存在）
+    # 读取简历摘要（若存在）——使用新的嵌套 parsed_content 结构
     resume_summary = ""
     if resume_id:
         resume = db.get(Resume, resume_id)
         if resume and resume.parsed_content:
             pc = resume.parsed_content
+            basics = pc.get("basics") or {}
+            skills = pc.get("skills") or []
+            experiences = pc.get("experiences") or []
+            projects = pc.get("projects") or []
+            exp_summary = "；".join(
+                f"{e.get('company','')} - {e.get('summary','')}" for e in experiences
+            )
+            proj_summary = "；".join(
+                f"{p.get('name','')}（{p.get('summary','')}）" for p in projects
+            )
             resume_summary = (
-                f"候选人：{pc.get('name', '未知')}\n"
-                f"技能：{', '.join(pc.get('skills', []))}\n"
-                f"工作经历：{pc.get('work_experience_summary', '无')}\n"
-                f"项目：{pc.get('projects_summary', '无')}"
+                f"候选人：{basics.get('name', '未知')}\n"
+                f"技能：{', '.join(skills)}\n"
+                f"工作经历：{exp_summary or '无'}\n"
+                f"项目：{proj_summary or '无'}"
             )
 
     user_prompt = (
@@ -154,17 +165,27 @@ def run_interview_turn(payload: dict[str, Any], db: Session) -> dict[str, Any]:
 
     is_complete = result.get("is_complete", False) or current_turn_no >= session.total_turns
 
-    # 写入 interview_turns
+    now = datetime.now(timezone.utc)
+
+    # feedback_text 没有独立 DB 列，嵌入 score_detail 一起存储
+    score_detail = result.get("score_detail") or {}
+    score_detail["feedback_text"] = result.get("feedback_text", "")
+    overall_score = score_detail.get("overall_score")
+
+    # 写入 interview_turns（列名必须与 Java Flyway 建表一致）
     turn = InterviewTurn(
         session_id=session_id,
         turn_no=current_turn_no,
         question_text=current_q.get("suggested_question", ""),
-        question_type="open",
-        user_response=user_response,
-        audio_path=payload.get("audio_path"),
-        score_detail=result.get("score_detail"),
-        feedback_text=result.get("feedback_text"),
+        question_type="OPEN",
+        user_answer_text=user_response,            # DB 列名 user_answer_text
+        user_audio_path=payload.get("audio_path"), # DB 列名 user_audio_path
+        score_detail=score_detail,
+        score_overall=overall_score,
         status="SCORED",
+        asked_at=now,                              # NOT NULL，必须写入
+        answered_at=now,
+        scored_at=now,
     )
     db.add(turn)
     db.commit()
@@ -202,7 +223,7 @@ def run_evaluation(payload: dict[str, Any], db: Session) -> dict[str, Any]:
         turn_summaries.append(
             f"第{t.turn_no}轮｜问题：{t.question_text[:80]}｜"
             f"得分：{sd.get('overall_score', '?')}｜"
-            f"反馈：{t.feedback_text or '无'}"
+            f"反馈：{sd.get('feedback_text') or '无'}"
         )
 
     user_prompt = (

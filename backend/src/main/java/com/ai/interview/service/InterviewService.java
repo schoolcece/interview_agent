@@ -89,6 +89,9 @@ public class InterviewService {
         try {
             Map<String, Object> planResponse = agentServiceClient.callPlanningService(planRequest);
 
+            // 与 Python 写入 DB 的 plan/total_turns 对齐，避免 Hibernate 快照仍为「创建会话时的旧值」
+            applyPlanningResult(session, planResponse);
+
             session.setStatus(SessionStatus.IN_PROGRESS);
             session.setCurrentTurn(1);
             session.setStartedAt(Instant.now());
@@ -203,6 +206,26 @@ public class InterviewService {
         Long userId = loginUserContextService.requireUserId();
         requireOwnedSession(sessionId, userId);
         return turnRepository.findBySessionIdOrderByTurnNoAsc(sessionId);
+    }
+
+    /**
+     * 将 Agent Planning 响应合并进当前会话实体，保证内存状态与 Python 已提交的事务一致，
+     * 并与 {@link com.ai.interview.entity.InterviewSession} 上的 {@code @DynamicUpdate} 配合，
+     * 避免后续 UPDATE 用陈旧快照覆盖 {@code plan/total_turns}。
+     */
+    @SuppressWarnings("unchecked")
+    private void applyPlanningResult(InterviewSession session, Map<String, Object> planResponse) {
+        if (planResponse == null) {
+            return;
+        }
+        Object planObj = planResponse.get("plan");
+        if (planObj instanceof Map<?, ?> raw) {
+            session.setPlan((Map<String, Object>) raw);
+            Object tt = raw.get("total_turns");
+            if (tt instanceof Number n) {
+                session.setTotalTurns(n.intValue());
+            }
+        }
     }
 
     /**
