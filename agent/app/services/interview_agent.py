@@ -134,7 +134,7 @@ def run_planning(payload: dict[str, Any], db: Session) -> dict[str, Any]:
 def run_interview_turn(payload: dict[str, Any], db: Session) -> dict[str, Any]:
     """
     处理一轮答题：评分当前回答 + 返回下一道题。
-    同时将 InterviewTurn 写入 DB（Python 是唯一写者）。
+    同时将 InterviewTurn 写入 DB（Python 是唯一写者），同一 (session_id, turn_no) 重复调用时做 update。
     payload 字段：session_id, user_id, user_response, current_turn, audio_path
     """
     session_id = payload["session_id"]
@@ -172,24 +172,41 @@ def run_interview_turn(payload: dict[str, Any], db: Session) -> dict[str, Any]:
     score_detail["feedback_text"] = result.get("feedback_text", "")
     overall_score = score_detail.get("overall_score")
 
-    # 写入 interview_turns（列名必须与 Java Flyway 建表一致）
-    turn = InterviewTurn(
-        session_id=session_id,
-        turn_no=current_turn_no,
-        question_text=current_q.get("suggested_question", ""),
-        question_type="OPEN",
-        user_answer_text=user_response,            # DB 列名 user_answer_text
-        user_audio_path=payload.get("audio_path"), # DB 列名 user_audio_path
-        score_detail=score_detail,
-        score_overall=overall_score,
-        status="SCORED",
-        asked_at=now,                              # NOT NULL，必须写入
-        answered_at=now,
-        scored_at=now,
-    )
-    db.add(turn)
+    # 写入 interview_turns —— 幂等：已存在则更新，避免超时重试时重复插入报错
+    turn = db.query(InterviewTurn).filter(
+        InterviewTurn.session_id == session_id,
+        InterviewTurn.turn_no == current_turn_no,
+    ).first()
+
+    if turn:
+        logger.info("Turn %d already exists for session %s, updating", current_turn_no, session_id)
+        turn.question_text = current_q.get("suggested_question", "")
+        turn.user_answer_text = user_response
+        turn.user_audio_path = payload.get("audio_path")
+        turn.score_detail = score_detail
+        turn.score_overall = overall_score
+        turn.status = "SCORED"
+        turn.answered_at = now
+        turn.scored_at = now
+    else:
+        turn = InterviewTurn(
+            session_id=session_id,
+            turn_no=current_turn_no,
+            question_text=current_q.get("suggested_question", ""),
+            question_type="OPEN",
+            user_answer_text=user_response,
+            user_audio_path=payload.get("audio_path"),
+            score_detail=score_detail,
+            score_overall=overall_score,
+            status="SCORED",
+            asked_at=now,
+            answered_at=now,
+            scored_at=now,
+        )
+        db.add(turn)
+
     db.commit()
-    logger.info("Turn %d written for session %s", current_turn_no, session_id)
+    logger.info("Turn %d saved for session %s", current_turn_no, session_id)
 
     return {
         "score_detail": result.get("score_detail"),
