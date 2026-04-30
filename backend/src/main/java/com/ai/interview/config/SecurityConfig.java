@@ -58,8 +58,16 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, rsp, exn) -> {
+                            rsp.setContentType("application/json;charset=UTF-8");
+                            rsp.setStatus(403);
+                            rsp.getWriter().write("{\"error\":\"Authentication required\"}");
+                        }))
                 .authorizeHttpRequests(auth -> auth
                         // 公开端点
                         .requestMatchers("/auth/login", "/auth/register").permitAll()
