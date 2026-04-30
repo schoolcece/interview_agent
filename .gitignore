@@ -50,3 +50,11 @@ logs/
 *.log
 tmp/
 temp/
+
+
+# Claude Code 本地配置
+.claude/
+
+# 测试脚本产生的临时文件
+scripts/*.txt
+scripts/*.log
