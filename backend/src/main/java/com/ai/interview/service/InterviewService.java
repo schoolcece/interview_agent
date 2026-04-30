@@ -2,13 +2,16 @@ package com.ai.interview.service;
 
 import com.ai.interview.client.AgentServiceClient;
 import com.ai.interview.dto.CreateInterviewSessionRequest;
+import com.ai.interview.entity.AnalysisStatus;
 import com.ai.interview.entity.InterviewSession;
 import com.ai.interview.entity.InterviewTurn;
+import com.ai.interview.entity.Resume;
 import com.ai.interview.entity.SessionStatus;
 import com.ai.interview.entity.embeddable.SessionConfig;
 import com.ai.interview.exception.ResourceNotFoundException;
 import com.ai.interview.repository.InterviewSessionRepository;
 import com.ai.interview.repository.InterviewTurnRepository;
+import com.ai.interview.repository.ResumeRepository;
 import com.ai.interview.security.LoginUserContextService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,15 +34,18 @@ public class InterviewService {
 
     private final InterviewSessionRepository sessionRepository;
     private final InterviewTurnRepository turnRepository;
+    private final ResumeRepository resumeRepository;
     private final AgentServiceClient agentServiceClient;
     private final LoginUserContextService loginUserContextService;
 
     public InterviewService(InterviewSessionRepository sessionRepository,
                             InterviewTurnRepository turnRepository,
+                            ResumeRepository resumeRepository,
                             AgentServiceClient agentServiceClient,
                             LoginUserContextService loginUserContextService) {
         this.sessionRepository = sessionRepository;
         this.turnRepository = turnRepository;
+        this.resumeRepository = resumeRepository;
         this.agentServiceClient = agentServiceClient;
         this.loginUserContextService = loginUserContextService;
     }
@@ -59,6 +65,22 @@ public class InterviewService {
         SessionConfig config = request.getConfig();
         if (config.getDomain() == null || config.getDomain().isBlank()) {
             throw new IllegalArgumentException("config.domain is required");
+        }
+
+        // 若指定了 resumeId，校验简历已解析完成，否则拒绝创建（避免 Planner 拿到空简历）
+        if (request.getResumeId() != null) {
+            Resume resume = resumeRepository.findByIdAndUserIdAndDeletedAtIsNull(
+                    request.getResumeId(), userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Resume not found"));
+            if (resume.getAnalysisStatus() == AnalysisStatus.PENDING
+                    || resume.getAnalysisStatus() == AnalysisStatus.PARSING) {
+                throw new IllegalArgumentException(
+                        "Resume is still being analyzed. Please wait until analysis is complete.");
+            }
+            if (resume.getAnalysisStatus() == AnalysisStatus.FAILED) {
+                throw new IllegalArgumentException(
+                        "Resume analysis failed. Please re-upload the file.");
+            }
         }
 
         InterviewSession session = InterviewSession.create(
