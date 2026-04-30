@@ -48,7 +48,7 @@ minio:
 agent:
   service:
     url: http://localhost:8000
-    timeout: 30000
+    timeout: 120000
     planning:
       endpoint: /api/v1/planning
     interview:
