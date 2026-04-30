@@ -15,7 +15,7 @@ async def planning(payload: dict, db: Session = Depends(get_db)):
 
 @router.post("/interview")
 async def interview_turn(payload: dict, db: Session = Depends(get_db)):
-    """Java 调用：处理一轮答题，返回评分 + 下一道题。"""
+    """Java 调用：处理一轮答题，返回评分 + 下一道题（同一轮重复调用自动更新）。"""
     return run_interview_turn(payload, db)
 
 
